@@ -1,0 +1,27 @@
+// Suggested Cloud Firestore security rules for Shomota Shurokkha.
+// Review with WaterAid's safeguarding and ICT teams before deploying.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return signedIn() && request.auth.token.admin == true; }
+
+    // Knowledge Hub content: anyone can read, only admins can change it
+    match /topics/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /details/{id} { allow read: if true; allow write: if isAdmin(); }
+
+    // A user can read and edit only their own profile
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Reports: a signed-in user can create one for themselves.
+    // Nobody can read reports from the app; the safeguarding team reads them
+    // through a separate, access-controlled tool.
+    match /reports/{id} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+  }
+}
